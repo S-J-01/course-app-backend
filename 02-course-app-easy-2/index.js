@@ -7,6 +7,30 @@ let ADMINS = [];
 let USERS = [];
 let COURSES = [];
 
+var adminAuthentication = (req, res, next) => {
+  var username = req.headers.username;
+  var password  = req.headers.password;
+
+  var admin = ADMINS.find(obj => obj.username === username && obj.password === password);
+  if (admin) {
+    next();
+  } else {
+    res.status(403).json({ message: 'Admin authentication failed' });
+  }
+};
+
+var userAuthentication = (req, res, next) => {
+  var username = req.headers.username;
+  var password  = req.headers.password;
+  var user = USERS.find(obj => obj.username === username && obj.password === password);
+  if (user) {
+    req.user = user;  
+    next();
+  } else {
+    res.status(403).json({ message: 'User authentication failed' });
+  }
+};
+
 // Admin routes
 app.post('/admin/signup', (req, res) => {
   // logic to sign up admin
