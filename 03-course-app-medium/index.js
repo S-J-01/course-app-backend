@@ -1,11 +1,12 @@
+
 const express = require('express');
 const app = express();
+const jwt = require('jsonwebtoken');
+require('dotenv').config();
+
 
 app.use(express.json());
 
-let ADMINS = [];
-let USERS = [];
-let COURSES = [];
 
 // Admin routes
 app.post('/admin/signup', (req, res) => {
