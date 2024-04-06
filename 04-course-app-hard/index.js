@@ -1,12 +1,38 @@
 const express = require('express');
 const app = express();
-
+const jwt = require('jsonwebtoken');
+require('dotenv').config();
 app.use(express.json());
 
-let ADMINS = [];
-let USERS = [];
-let COURSES = [];
+var adminAuthentication = (req, res, next) => {
+  var username = req.headers.username;
+  var password  = req.headers.password;
 
+  var admin = ADMINS.find(obj => obj.username === username && obj.password === password);
+  if (admin) {
+    req.admin=admin;
+    next();
+  } else {
+    res.status(403).json({ message: 'Admin authentication failed' });
+  }
+};
+
+var authenticateAdminJwtToken = (req,res,next)=>{
+  var authHeader = req.headers.authorization;
+  var token = authHeader && authHeader.split(' ')[1];
+  if(token){
+  jwt.verify(token,process.env.ACCESS_TOKEN_SECRET,(err,admin)=>{
+   if (err) {
+     res.status(403).json({message:'invalid token'});
+   }else{
+     req.admin=admin;
+     next();
+   }
+  });
+ }else{
+   res.status(401).json({message:'authHeader empty'});
+ }
+ };
 // Admin routes
 app.post('/admin/signup', (req, res) => {
   // logic to sign up admin
