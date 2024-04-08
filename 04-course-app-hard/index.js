@@ -1,20 +1,38 @@
 const express = require('express');
 const app = express();
 const jwt = require('jsonwebtoken');
+const mongoose = require('mongoose');
+mongoose.connect('mongodb://127.0.0.1:27017/courseAppDatabase');
 require('dotenv').config();
 app.use(express.json());
+const ADMIN = require('./admin');
+const COURSE = require ('./course');
 
 var adminAuthentication = (req, res, next) => {
   var username = req.headers.username;
   var password  = req.headers.password;
 
-  var admin = ADMINS.find(obj => obj.username === username && obj.password === password);
-  if (admin) {
-    req.admin=admin;
-    next();
-  } else {
-    res.status(403).json({ message: 'Admin authentication failed' });
-  }
+  // var admin = ADMINS.find(obj => obj.username === username && obj.password === password);
+  // if (admin) {
+  //   req.admin=admin;
+  //   next();
+  // } else {
+  //   res.status(403).json({ message: 'Admin authentication failed' });
+  // }
+  ADMIN.findOne({username:username, password:password})
+  .then((admin)=>{
+    if(admin){
+      console.log('admin found in database while logging in');
+      req.admin=admin;
+      next();
+
+    }else{
+      res.status(403).json({message:'Admin authentication failed'});
+    }
+  })
+  .catch(error =>{
+    console.error(error);
+  })
 };
 
 var authenticateAdminJwtToken = (req,res,next)=>{
@@ -36,14 +54,40 @@ var authenticateAdminJwtToken = (req,res,next)=>{
 // Admin routes
 app.post('/admin/signup', (req, res) => {
   // logic to sign up admin
+  const newAdmin = new ADMIN({
+   username : req.body.username,
+   password : req.body.password
+  });
+
+  newAdmin.save().then(resp=>{
+    console.log('newly signed up admin saved to DB',resp);
+  })
+
+  var accessToken = jwt.sign(newAdmin,process.env.ACCESS_TOKEN_SECRET,{expiresIn:'1h'});
+  res.status(200).json({message:'admin signed up successfully',token:accessToken});
 });
 
-app.post('/admin/login', (req, res) => {
+app.post('/admin/login',adminAuthentication, (req, res) => {
   // logic to log in admin
+  var admin = req.admin;
+  var accessToken = jwt.sign(admin,process.env.ACCESS_TOKEN_SECRET,{expiresIn:'1h'});
+  res.status(200).json({message:'admin login successful', token:accessToken});
 });
 
-app.post('/admin/courses', (req, res) => {
+app.post('/admin/courses',authenticateAdminJwtToken, (req, res) => {
   // logic to create a course
+  const newCourse = new COURSE({
+    title : req.body.title,
+    description:req.body.description,
+    price:req.body.price,
+    imageLink:req.body.imageLink,
+    published:req.body.published,
+    courseID:Math.floor(Math.random() * 1000) + 1
+  });
+  newCourse.save().then(resp=>{
+    console.log('new course saved to DB',resp);
+  })
+  res.status(200).json({message:'course created successfully', courseID:newCourse.courseID});
 });
 
 app.put('/admin/courses/:courseId', (req, res) => {
