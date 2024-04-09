@@ -43,6 +43,7 @@ var authenticateAdminJwtToken = (req,res,next)=>{
   jwt.verify(token,process.env.ACCESS_TOKEN_SECRET,(err,admin)=>{
    if (err) {
      res.status(403).json({message:'invalid token'});
+
    }else{
      req.admin=admin;
      next();
@@ -69,6 +70,23 @@ var userAuthentication = (req,res,next)=>{
   console.error(error);
  })
 };
+
+var authenticateUserJwtToken = (req,res,next)=>{
+  var authHeader = req.headers.authorization;
+  var token = authHeader && authHeader.split(' ')[1];
+  if(token){
+    jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err,user)=>{
+      if(err){
+        res.status(403).json({message:'invalid jwt token'});
+      }else{
+        req.user = user;
+        next();
+      }
+    })
+  }else{
+    res.status(403).json({message:'authHeader empty'});
+  }
+}
 // Admin routes
 app.post('/admin/signup', (req, res) => {
   // logic to sign up admin
@@ -120,9 +138,12 @@ app.put('/admin/courses/:courseId',authenticateAdminJwtToken, (req, res) => {
       course.price=req.body.price;
       course.imageLink=req.body.imageLink;
       course.published=req.body.published;
+      course.save().then((resp)=>{
+        console.log('course saved to DB after updating',resp);
+      })
       res.status(200).json({message:'course updated successfully'});
     }else{
-      res.status(404).json({message:'course not found in database'});
+      res.status(404).json({message:'wrong course ID'});
     }
   })
   .catch(error=>{
@@ -146,7 +167,8 @@ app.post('/users/signup', (req, res) => {
   
   const newUser = new USER({
     username : req.body.username,
-    password : req.body.password
+    password : req.body.password,
+    purchasedCourses : []
   });
 
   newUser.save().then((resp)=>{
@@ -160,18 +182,41 @@ app.post('/users/signup', (req, res) => {
 
 app.post('/users/login',userAuthentication, (req, res) => {
   // logic to log in user
+  var accessToken = jwt.sign(req.user, process.env.ACCESS_TOKEN_SECRET,{expiresIn:'1h'});
+  res.status(200).json({message:'user logged in successfully',token:accessToken});
 });
 
-app.get('/users/courses', (req, res) => {
+app.get('/users/courses',authenticateUserJwtToken, (req, res) => {
   // logic to list all courses
+  COURSE.find()
+  .then((course)=>{
+    res.status(200).json({courses:course});
+  })
 });
 
-app.post('/users/courses/:courseId', (req, res) => {
+app.post('/users/courses/:courseId',authenticateUserJwtToken, (req, res) => {
   // logic to purchase a course
+  var courseID = req.params.courseId;
+  COURSE.findOne({courseID:courseID})
+  .then((course)=>{
+    if(course){
+      req.user.purchasedCourses.push(course);
+      req.user.save().then((resp)=>{
+      console.log('user saved to DB after purchasing course',resp);
+      res.status(200).json({message:'course purchased successfully'});
+      })
+    }else{
+      res.status(403).json({message:'wrong course ID'});
+    }
+  })
+  .catch(error=>{
+    console.error(error);
+  })
 });
 
-app.get('/users/purchasedCourses', (req, res) => {
+app.get('/users/purchasedCourses',authenticateUserJwtToken, (req, res) => {
   // logic to view purchased courses
+  res.status(200).json({purchasedCourses:req.user.purchasedCourses});
 });
 
 app.listen(3000, () => {
