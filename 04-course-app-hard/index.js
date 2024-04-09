@@ -7,6 +7,7 @@ require('dotenv').config();
 app.use(express.json());
 const ADMIN = require('./admin');
 const COURSE = require ('./course');
+const USER = require('./user');
 
 var adminAuthentication = (req, res, next) => {
   var username = req.headers.username;
@@ -51,6 +52,23 @@ var authenticateAdminJwtToken = (req,res,next)=>{
    res.status(401).json({message:'authHeader empty'});
  }
  };
+
+var userAuthentication = (req,res,next)=>{
+ USER.findOne({username:req.headers.username, password:req.headers.password})
+ .then((user)=>{
+  if(user){
+    console.log('user found in database while logging in');
+    req.user = user;
+    next();
+  }else{
+    res.status(403).json({message:'wrong username or password'});
+  }
+
+ })
+ .catch(error=>{
+  console.error(error);
+ })
+};
 // Admin routes
 app.post('/admin/signup', (req, res) => {
   // logic to sign up admin
@@ -90,20 +108,57 @@ app.post('/admin/courses',authenticateAdminJwtToken, (req, res) => {
   res.status(200).json({message:'course created successfully', courseID:newCourse.courseID});
 });
 
-app.put('/admin/courses/:courseId', (req, res) => {
+app.put('/admin/courses/:courseId',authenticateAdminJwtToken, (req, res) => {
   // logic to edit a course
+  var courseID= req.params.courseId;
+  COURSE.findOne({courseID:courseID})
+  .then((course)=>{
+    if(course){
+      console.log('course found in database');
+      course.title=req.body.title;
+      course.description=req.body.description;
+      course.price=req.body.price;
+      course.imageLink=req.body.imageLink;
+      course.published=req.body.published;
+      res.status(200).json({message:'course updated successfully'});
+    }else{
+      res.status(404).json({message:'course not found in database'});
+    }
+  })
+  .catch(error=>{
+    console.error(error);
+  })
+
+
 });
 
-app.get('/admin/courses', (req, res) => {
+app.get('/admin/courses',authenticateAdminJwtToken, (req, res) => {
   // logic to get all courses
+  COURSE.find()
+  .then((course)=>{
+    res.status(200).json({courses:course})
+  })
 });
 
 // User routes
 app.post('/users/signup', (req, res) => {
   // logic to sign up user
+  
+  const newUser = new USER({
+    username : req.body.username,
+    password : req.body.password
+  });
+
+  newUser.save().then((resp)=>{
+    console.log('new user saved in database',resp);
+  })
+
+  var accessToken = jwt.sign(newUser,process.env.ACCESS_TOKEN_SECRET,{expiresIn:'1h'});
+  res.status(200).json({message:'user signed up successfully',token:accessToken});
+
 });
 
-app.post('/users/login', (req, res) => {
+app.post('/users/login',userAuthentication, (req, res) => {
   // logic to log in user
 });
 
