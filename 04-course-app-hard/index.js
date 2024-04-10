@@ -24,7 +24,7 @@ var adminAuthentication = (req, res, next) => {
   .then((admin)=>{
     if(admin){
       console.log('admin found in database while logging in');
-      req.admin=admin;
+      req.admin=admin.toObject();
       next();
 
     }else{
@@ -59,7 +59,7 @@ var userAuthentication = (req,res,next)=>{
  .then((user)=>{
   if(user){
     console.log('user found in database while logging in');
-    req.user = user;
+    req.user = user.toObject();
     next();
   }else{
     res.status(403).json({message:'wrong username or password'});
@@ -99,7 +99,7 @@ app.post('/admin/signup', (req, res) => {
     console.log('newly signed up admin saved to DB',resp);
   })
 
-  var accessToken = jwt.sign(newAdmin,process.env.ACCESS_TOKEN_SECRET,{expiresIn:'1h'});
+  var accessToken = jwt.sign(newAdmin.toObject(),process.env.ACCESS_TOKEN_SECRET,{expiresIn:'1h'});
   res.status(200).json({message:'admin signed up successfully',token:accessToken});
 });
 
@@ -175,7 +175,7 @@ app.post('/users/signup', (req, res) => {
     console.log('new user saved in database',resp);
   })
 
-  var accessToken = jwt.sign(newUser,process.env.ACCESS_TOKEN_SECRET,{expiresIn:'1h'});
+  var accessToken = jwt.sign(newUser.toObject(),process.env.ACCESS_TOKEN_SECRET,{expiresIn:'1h'});
   res.status(200).json({message:'user signed up successfully',token:accessToken});
 
 });
