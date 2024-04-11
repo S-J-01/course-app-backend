@@ -79,6 +79,8 @@ var authenticateUserJwtToken = (req,res,next)=>{
       if(err){
         res.status(403).json({message:'invalid jwt token'});
       }else{
+        console.log('control in authenticateUserJwtToken');
+        console.log(user);
         req.user = user;
         next();
       }
@@ -197,14 +199,25 @@ app.get('/users/courses',authenticateUserJwtToken, (req, res) => {
 app.post('/users/courses/:courseId',authenticateUserJwtToken, (req, res) => {
   // logic to purchase a course
   var courseID = req.params.courseId;
+  var loggedInUser = req.user;
+  console.log('this is logged in user',loggedInUser);
   COURSE.findOne({courseID:courseID})
   .then((course)=>{
     if(course){
-      req.user.purchasedCourses.push(course);
-      req.user.save().then((resp)=>{
-      console.log('user saved to DB after purchasing course',resp);
-      res.status(200).json({message:'course purchased successfully'});
-      })
+      //query from db here and update
+      //loggedInUser.purchasedCourses.push(course);
+      // loggedInUser.save().then((resp)=>{
+      // console.log('user saved to DB after purchasing course',resp);
+      // res.status(200).json({message:'course purchased successfully'});
+      // })
+      USER.updateOne({username:loggedInUser.username,password:loggedInUser.password},
+      {$push:{purchasedCourses:course}},
+    ).then(result=>{
+        console.log('purchased course added to User and saved to DB',result);
+        res.status(200).json({message:'Course purchased successfully'});
+    })
+    // console.log('user saved to DB after purchasing course');
+    // res.status(200).json({message:'course purchased successfully'});
     }else{
       res.status(403).json({message:'wrong course ID'});
     }
@@ -216,7 +229,13 @@ app.post('/users/courses/:courseId',authenticateUserJwtToken, (req, res) => {
 
 app.get('/users/purchasedCourses',authenticateUserJwtToken, (req, res) => {
   // logic to view purchased courses
-  res.status(200).json({purchasedCourses:req.user.purchasedCourses});
+  USER.findOne({username:req.user.username,password:req.user.password})
+  .populate('purchasedCourses')
+  .then(user=>{
+    console.log('user found in DB');
+    res.status(200).json({purchasedCourses:user.purchasedCourses});
+  })
+  //res.status(200).json({purchasedCourses:req.user.purchasedCourses});
 });
 
 app.listen(3000, () => {
